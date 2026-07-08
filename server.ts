@@ -16,12 +16,26 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }));
 // Initialize Gemini SDK lazily to avoid crashing on startup if key is missing
 let aiClient: GoogleGenAI | null = null;
 
-function getGeminiClient(): GoogleGenAI {
+function getGeminiClient(customApiKey?: string): GoogleGenAI {
+  const apiKey = customApiKey || process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("Gemini API Key가 필요합니다. 우측 상단 'API 키 설정' 메뉴에서 자신의 Gemini API Key를 등록하거나, 서버 환경변수(GEMINI_API_KEY)를 설정해주세요.");
+  }
+  
+  // If using a custom user API Key, create a fresh client instance to prevent cross-user leakage
+  if (customApiKey) {
+    return new GoogleGenAI({
+      apiKey: customApiKey,
+      httpOptions: {
+        headers: {
+          "User-Agent": "aistudio-build",
+        },
+      },
+    });
+  }
+
+  // Fallback to shared system client
   if (!aiClient) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error("GEMINI_API_KEY 환경변수가 설정되지 않았습니다. AI Studio의 Settings > Secrets 패널에서 설정해주세요.");
-    }
     aiClient = new GoogleGenAI({
       apiKey: apiKey,
       httpOptions: {
@@ -37,13 +51,13 @@ function getGeminiClient(): GoogleGenAI {
 // API endpoint for image editing
 app.post("/api/edit-image", async (req, res) => {
   try {
-    const { originalImage, referenceImage, prompt } = req.body;
+    const { originalImage, referenceImage, prompt, userApiKey } = req.body;
 
     if (!originalImage || !originalImage.data || !originalImage.mimeType) {
       return res.status(400).json({ error: "원본 건축 이미지는 필수 입력 항목입니다." });
     }
 
-    const ai = getGeminiClient();
+    const ai = getGeminiClient(userApiKey);
     const parts: any[] = [];
 
     // 1. Add Original Image Part

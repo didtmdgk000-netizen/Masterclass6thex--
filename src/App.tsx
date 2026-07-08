@@ -19,7 +19,10 @@ import {
   Info, 
   Check, 
   ArrowRight,
-  HelpCircle
+  HelpCircle,
+  Key,
+  EyeOff,
+  Settings
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -41,11 +44,48 @@ export default function App() {
   const [resultImage, setResultImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
+
+  // API Key States for Vercel deploy compatibility
+  const [userApiKey, setUserApiKey] = useState<string>(() => {
+    try {
+      return localStorage.getItem("archvision_user_api_key") || "";
+    } catch {
+      return "";
+    }
+  });
+  const [showKeyInput, setShowKeyInput] = useState<boolean>(false);
+  const [showKeyPassword, setShowKeyPassword] = useState<boolean>(false);
+  const [apiKeySavedStatus, setApiKeySavedStatus] = useState<boolean>(false);
   
   // Custom interactive comparison tab state: 'result' | 'side-by-side' | 'slider'
   const [viewMode, setViewMode] = useState<'result' | 'side-by-side' | 'slider'>('result');
   const [sliderPosition, setSliderPosition] = useState<number>(50);
   const sliderContainerRef = useRef<HTMLDivElement>(null);
+
+  const handleSaveApiKey = () => {
+    try {
+      if (userApiKey.trim()) {
+        localStorage.setItem("archvision_user_api_key", userApiKey.trim());
+        setApiKeySavedStatus(true);
+        setTimeout(() => setApiKeySavedStatus(false), 2000);
+      } else {
+        localStorage.removeItem("archvision_user_api_key");
+      }
+      setValidationError(null);
+    } catch (err) {
+      setValidationError("브라우저 로컬 스토리지에 API 키를 저장하는 데 실패했습니다.");
+    }
+  };
+
+  const handleDeleteApiKey = () => {
+    try {
+      localStorage.removeItem("archvision_user_api_key");
+      setUserApiKey("");
+      setValidationError(null);
+    } catch (err) {
+      setValidationError("API 키를 삭제하는 데 실패했습니다.");
+    }
+  };
 
   // File Inputs
   const originalInputRef = useRef<HTMLInputElement>(null);
@@ -157,7 +197,8 @@ export default function App() {
             data: referenceImage.data,
             mimeType: referenceImage.mimeType
           } : null,
-          prompt: prompt.trim()
+          prompt: prompt.trim(),
+          userApiKey: userApiKey.trim() || undefined
         })
       });
 
@@ -233,8 +274,100 @@ export default function App() {
               <p className="text-xs text-slate-500">AI 건축 이미지 편집 도구</p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <span className="text-xs font-medium text-slate-400 bg-slate-100/80 px-3 py-1.5 rounded-full border border-slate-200/50">
+          <div className="flex items-center gap-3 self-end md:self-auto">
+            {/* User API Key Indicator / Button */}
+            <div className="relative">
+              <button
+                onClick={() => setShowKeyInput(!showKeyInput)}
+                className={`text-xs font-semibold px-3 py-2 rounded-xl border flex items-center gap-1.5 transition-all duration-200 cursor-pointer ${
+                  userApiKey.trim() 
+                    ? "bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100/70" 
+                    : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                }`}
+                title="개인 Gemini API 키 설정 (Vercel 배포 시 필요)"
+              >
+                <Key className="h-3.5 w-3.5" />
+                <span>API 키 설정</span>
+                {userApiKey.trim() && (
+                  <span className="h-1.5 w-1.5 rounded-full bg-teal-500 animate-pulse" />
+                )}
+              </button>
+
+              {/* API Key settings dropdown panel */}
+              <AnimatePresence>
+                {showKeyInput && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    className="absolute right-0 mt-2 w-80 bg-white rounded-2xl border border-slate-200 shadow-xl p-4 z-50 text-left space-y-3"
+                  >
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <Key className="h-3.5 w-3.5 text-teal-600" />
+                        개인 Gemini API 키 설정
+                      </h4>
+                      <p className="text-[10px] text-slate-400 leading-normal mt-1">
+                        버셀(Vercel) 배포 후 본인의 Google AI Studio에서 발급받은 <strong>GEMINI_API_KEY</strong>를 등록해 사용하세요. 입력된 키는 로컬 브라우저에만 암호화 저장되며, 실시간 AI 이미지 생성에만 일회성으로 사용됩니다.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <div className="relative">
+                        <input
+                          type={showKeyPassword ? "text" : "password"}
+                          value={userApiKey}
+                          onChange={(e) => setUserApiKey(e.target.value)}
+                          placeholder="AIzaSy..."
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 pl-3 pr-8 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowKeyPassword(!showKeyPassword)}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                        >
+                          {showKeyPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 pt-1">
+                        <button
+                          onClick={handleDeleteApiKey}
+                          disabled={!userApiKey}
+                          className="text-[10px] font-bold text-red-500 hover:text-red-600 disabled:opacity-40 transition-colors py-1 cursor-pointer"
+                        >
+                          초기화
+                        </button>
+                        <div className="flex gap-1.5">
+                          <button
+                            onClick={() => setShowKeyInput(false)}
+                            className="text-[10px] font-bold text-slate-500 hover:text-slate-600 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg cursor-pointer"
+                          >
+                            닫기
+                          </button>
+                          <button
+                            onClick={handleSaveApiKey}
+                            className="text-[10px] font-bold text-white bg-teal-600 hover:bg-teal-700 px-3 py-1 rounded-lg shadow-sm cursor-pointer"
+                          >
+                            {apiKeySavedStatus ? "저장 완료!" : "저장하기"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Badge/Indicator inside dropdown */}
+                    <div className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 flex items-start gap-2">
+                      <Info className="h-3 w-3 text-slate-400 shrink-0 mt-0.5" />
+                      <p className="text-[9px] text-slate-400 leading-normal">
+                        키를 비워두면 서버에 미리 설정된 전역 환경변수를 기본으로 사용합니다.
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            <span className="text-xs font-medium text-slate-400 bg-slate-100/80 px-3 py-1.5 rounded-full border border-slate-200/50 hidden sm:inline-block">
               AI 건축 보조 도구
             </span>
           </div>
