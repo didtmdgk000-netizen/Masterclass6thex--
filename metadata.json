@@ -1,0 +1,6 @@
+{
+  "name": "아치비전",
+  "description": "사용자가 업로드한 건축 원본 이미지를 분석하고 AI 기술을 통해 프롬프트와 레퍼런스 스타일을 반영하여 사실적이고 고품질의 건축 이미지를 생성하고 편집해 주는 웹 애플리케이션입니다.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
